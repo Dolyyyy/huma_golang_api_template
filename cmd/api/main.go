@@ -6,17 +6,28 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/Dolyyyy/huma_golang_api_template/internal/config"
 	"github.com/Dolyyyy/huma_golang_api_template/internal/logger"
+	"github.com/Dolyyyy/huma_golang_api_template/internal/modulekit"
 	"github.com/Dolyyyy/huma_golang_api_template/internal/server"
 )
 
 func main() {
 	cfg := config.Load()
 	bootstrapLogger := logger.NewConsoleFallback()
+	if err := cfg.Validate(); err != nil {
+		bootstrapLogger.Critical("invalid configuration", "error", err)
+		os.Exit(1)
+	}
+	if err := modulekit.ValidateAll(); err != nil {
+		bootstrapLogger.Critical("invalid module configuration", "error", err)
+		os.Exit(1)
+	}
+
 	appLogger, err := logger.New(cfg.Logging)
 	if err != nil {
 		bootstrapLogger.Critical("failed to initialize logger", "error", err)
@@ -33,6 +44,7 @@ func main() {
 	errCh := make(chan error, 1)
 	go func() {
 		appLogger.Success("API is up and ready to listen")
+		logEnabledModules(appLogger)
 
 		startupURLs := server.DiscoverStartupURLs(cfg.Address())
 		for _, startupURL := range startupURLs {
@@ -68,4 +80,15 @@ func main() {
 	}
 
 	appLogger.Info("server stopped")
+}
+
+func logEnabledModules(appLogger *logger.Logger) {
+	enabled := modulekit.IDs()
+
+	if len(enabled) == 0 {
+		appLogger.Info("No optional modules enabled")
+		return
+	}
+
+	appLogger.Info("Optional modules enabled", "modules", strings.Join(enabled, ","))
 }

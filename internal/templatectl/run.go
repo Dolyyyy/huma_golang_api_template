@@ -1,0 +1,357 @@
+package templatectl
+
+import (
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+type runOptions struct {
+	Root       string
+	Source     string
+	NoColor    bool
+	NoSpinner  bool
+	SkipVerify bool
+}
+
+// Run executes the template module CLI.
+func Run(args []string, stdout, stderr io.Writer) int {
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(stderr, "failed to resolve working directory: %v\n", err)
+		return 1
+	}
+
+	return RunWithRoot(args, cwd, stdout, stderr)
+}
+
+// RunWithRoot executes the CLI against an explicit project root.
+func RunWithRoot(args []string, projectRoot string, stdout, stderr io.Writer) int {
+	commandArgs, options, err := parseOptions(args, projectRoot)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	ui := newCLIUI(stdout, stderr, options.NoColor, options.NoSpinner)
+	if len(commandArgs) == 0 {
+		printUsage(stdout)
+		return 0
+	}
+
+	switch commandArgs[0] {
+	case "help", "--help", "-h":
+		printUsage(stdout)
+		return 0
+	case "list":
+		return runList(options, ui)
+	case "add":
+		if len(commandArgs) < 2 {
+			ui.failure("missing module id: templatectl add <module-id>")
+			return 1
+		}
+		return runAdd(options, commandArgs[1], ui)
+	case "remove":
+		if len(commandArgs) < 2 {
+			ui.failure("missing module id: templatectl remove <module-id>")
+			return 1
+		}
+		return runRemove(options, commandArgs[1], ui)
+	case "doctor":
+		return runDoctor(options, ui)
+	default:
+		ui.failure("unknown command %q", commandArgs[0])
+		printUsage(stderr)
+		return 1
+	}
+}
+
+func runList(options runOptions, ui *cliUI) int {
+	lock, err := loadLockFile(options.Root)
+	if err != nil {
+		ui.failure("failed to read lockfile: %v", err)
+		return 1
+	}
+
+	source, err := resolveModulesSource(options.Root, options.Source)
+	if err != nil {
+		ui.failure("%v", err)
+		return 1
+	}
+	defer source.close()
+
+	catalog, err := loadCatalog(source.Path)
+	if err != nil {
+		ui.failure("%v", err)
+		return 1
+	}
+
+	ui.info("modules source: %s", source.Path)
+	if len(catalog) == 0 {
+		ui.warn("no module found in catalog")
+		return 0
+	}
+
+	installed := make(map[string]InstalledModule, len(lock.Modules))
+	for _, module := range lock.Modules {
+		installed[module.ID] = module
+	}
+
+	for _, module := range catalog {
+		status := "available"
+		if _, ok := installed[module.Manifest.ID]; ok {
+			status = "installed"
+		}
+
+		ui.print("- %s [%s]\n", module.Manifest.ID, status)
+		ui.print("  %s\n", module.Manifest.Description)
+	}
+
+	return 0
+}
+
+func runAdd(options runOptions, moduleID string, ui *cliUI) int {
+	if err := ensureGitClean(options.Root); err != nil {
+		ui.failure("%v", err)
+		return 1
+	}
+
+	source, err := resolveModulesSource(options.Root, options.Source)
+	if err != nil {
+		ui.failure("%v", err)
+		return 1
+	}
+	defer source.close()
+
+	catalog, err := loadCatalog(source.Path)
+	if err != nil {
+		ui.failure("%v", err)
+		return 1
+	}
+
+	module, ok := findCatalogModule(catalog, moduleID)
+	if !ok {
+		ui.failure("unknown module %q", moduleID)
+		return runList(options, ui)
+	}
+
+	lock, err := loadLockFile(options.Root)
+	if err != nil {
+		ui.failure("failed to load lockfile: %v", err)
+		return 1
+	}
+
+	if _, _, exists := lock.findInstalledModule(moduleID); exists {
+		ui.warn("module %q is already installed", moduleID)
+		return 0
+	}
+
+	modulePath, err := readGoModulePath(options.Root)
+	if err != nil {
+		ui.failure("%v", err)
+		return 1
+	}
+
+	if err := ui.runStep(fmt.Sprintf("installing %s", moduleID), func() error {
+		_, installErr := installModule(options.Root, module, lock, modulePath)
+		return installErr
+	}); err != nil {
+		ui.failure("%v", err)
+		return 1
+	}
+
+	if err := writeGeneratedImports(options.Root, modulePath, lock); err != nil {
+		ui.failure("failed to update generated imports: %v", err)
+		return 1
+	}
+
+	if err := saveLockFile(options.Root, lock); err != nil {
+		ui.failure("failed to save lockfile: %v", err)
+		return 1
+	}
+
+	if !options.SkipVerify {
+		if err := ui.runStep("running go mod tidy and go test ./...", func() error {
+			return runGoProjectVerification(options.Root)
+		}); err != nil {
+			ui.failure("%v", err)
+			return 1
+		}
+	}
+
+	ui.success("module %q installed", moduleID)
+	return 0
+}
+
+func runRemove(options runOptions, moduleID string, ui *cliUI) int {
+	if err := ensureGitClean(options.Root); err != nil {
+		ui.failure("%v", err)
+		return 1
+	}
+
+	lock, err := loadLockFile(options.Root)
+	if err != nil {
+		ui.failure("failed to load lockfile: %v", err)
+		return 1
+	}
+
+	installed, _, ok := lock.findInstalledModule(moduleID)
+	if !ok {
+		ui.warn("module %q is not installed", moduleID)
+		return 0
+	}
+
+	modulePath, err := readGoModulePath(options.Root)
+	if err != nil {
+		ui.failure("%v", err)
+		return 1
+	}
+
+	if err := ui.runStep(fmt.Sprintf("removing %s", moduleID), func() error {
+		return uninstallModule(options.Root, installed, lock)
+	}); err != nil {
+		ui.failure("%v", err)
+		return 1
+	}
+
+	if err := writeGeneratedImports(options.Root, modulePath, lock); err != nil {
+		ui.failure("failed to update generated imports: %v", err)
+		return 1
+	}
+
+	if err := saveLockFile(options.Root, lock); err != nil {
+		ui.failure("failed to save lockfile: %v", err)
+		return 1
+	}
+
+	if !options.SkipVerify {
+		if err := ui.runStep("running go mod tidy and go test ./...", func() error {
+			return runGoProjectVerification(options.Root)
+		}); err != nil {
+			ui.failure("%v", err)
+			return 1
+		}
+	}
+
+	ui.success("module %q removed", moduleID)
+	return 0
+}
+
+func runDoctor(options runOptions, ui *cliUI) int {
+	lock, err := loadLockFile(options.Root)
+	if err != nil {
+		ui.failure("failed to load lockfile: %v", err)
+		return 1
+	}
+
+	modulePath, err := readGoModulePath(options.Root)
+	if err != nil {
+		ui.failure("%v", err)
+		return 1
+	}
+
+	failures := make([]string, 0)
+	for _, module := range lock.Modules {
+		for _, relPath := range module.Files {
+			absolute, joinErr := safeJoinBase(options.Root, relPath)
+			if joinErr != nil {
+				failures = append(failures, fmt.Sprintf("%s: %v", module.ID, joinErr))
+				continue
+			}
+			if !fileExists(absolute) {
+				failures = append(failures, fmt.Sprintf("%s: missing file %s", module.ID, relPath))
+			}
+		}
+	}
+
+	expectedImports := make([]string, 0, len(lock.Modules))
+	for _, module := range lock.Modules {
+		expectedImports = append(expectedImports, buildImportPath(modulePath, module.PackagePath))
+	}
+	sort.Strings(expectedImports)
+
+	currentImportsPath := filepath.Join(options.Root, filepath.FromSlash(generatedImportsPath))
+	if fileExists(currentImportsPath) {
+		raw, readErr := os.ReadFile(currentImportsPath)
+		if readErr != nil {
+			failures = append(failures, fmt.Sprintf("failed to read generated imports: %v", readErr))
+		} else {
+			for _, expected := range expectedImports {
+				if !strings.Contains(string(raw), expected) {
+					failures = append(failures, fmt.Sprintf("generated imports missing %s", expected))
+				}
+			}
+		}
+	} else if len(expectedImports) > 0 {
+		failures = append(failures, "generated imports file is missing")
+	}
+
+	if len(failures) > 0 {
+		for _, issue := range failures {
+			ui.failure("%s", issue)
+		}
+		return 1
+	}
+
+	ui.success("doctor passed (%d module(s) installed)", len(lock.Modules))
+	return 0
+}
+
+func parseOptions(args []string, defaultRoot string) ([]string, runOptions, error) {
+	options := runOptions{Root: defaultRoot}
+	commandArgs := make([]string, 0, len(args))
+
+	for idx := 0; idx < len(args); idx++ {
+		current := args[idx]
+		switch current {
+		case "--root":
+			if idx+1 >= len(args) {
+				return nil, runOptions{}, fmt.Errorf("--root expects a path")
+			}
+			options.Root = args[idx+1]
+			idx++
+		case "--source":
+			if idx+1 >= len(args) {
+				return nil, runOptions{}, fmt.Errorf("--source expects a path or repository URL")
+			}
+			options.Source = args[idx+1]
+			idx++
+		case "--no-color":
+			options.NoColor = true
+		case "--no-spinner":
+			options.NoSpinner = true
+		case "--skip-verify":
+			options.SkipVerify = true
+		default:
+			commandArgs = append(commandArgs, current)
+		}
+	}
+
+	if !filepath.IsAbs(options.Root) {
+		absoluteRoot, err := filepath.Abs(options.Root)
+		if err != nil {
+			return nil, runOptions{}, fmt.Errorf("failed to resolve root %q: %w", options.Root, err)
+		}
+		options.Root = absoluteRoot
+	}
+
+	return commandArgs, options, nil
+}
+
+func printUsage(output io.Writer) {
+	fmt.Fprintln(output, "templatectl - install optional modules from an external catalog")
+	fmt.Fprintln(output)
+	fmt.Fprintln(output, "Usage:")
+	fmt.Fprintln(output, "  templatectl [--root <project-path>] [--source <path-or-url>] list")
+	fmt.Fprintln(output, "  templatectl [--root <project-path>] [--source <path-or-url>] add <module-id>")
+	fmt.Fprintln(output, "  templatectl [--root <project-path>] remove <module-id>")
+	fmt.Fprintln(output, "  templatectl [--root <project-path>] doctor")
+	fmt.Fprintln(output)
+	fmt.Fprintln(output, "Flags:")
+	fmt.Fprintln(output, "  --skip-verify   Skip go mod tidy + go test ./... after add/remove")
+	fmt.Fprintln(output, "  --no-color      Disable ANSI colors")
+	fmt.Fprintln(output, "  --no-spinner    Disable loading spinner")
+}

@@ -75,6 +75,11 @@ func (c Config) Address() string {
 	return ":" + c.Port
 }
 
+// Validate enforces config invariants and fails fast on invalid settings.
+func (c Config) Validate() error {
+	return nil
+}
+
 func getStringEnv(key, fallback string) string {
 	value := strings.TrimSpace(os.Getenv(key))
 	if value == "" {

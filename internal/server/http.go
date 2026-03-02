@@ -9,6 +9,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/Dolyyyy/huma_golang_api_template/internal/config"
+	"github.com/Dolyyyy/huma_golang_api_template/internal/modulekit"
+	_ "github.com/Dolyyyy/huma_golang_api_template/internal/modules"
 	routerpkg "github.com/Dolyyyy/huma_golang_api_template/internal/router"
 	"github.com/Dolyyyy/huma_golang_api_template/internal/services"
 )
@@ -16,9 +18,14 @@ import (
 // New builds the HTTP server and wires all API dependencies.
 func New(cfg config.Config) *http.Server {
 	mux := chi.NewRouter()
+
+	modulekit.ApplyMiddlewares(mux)
+
 	mux.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/docs", http.StatusFound)
 	})
+
+	modulekit.RegisterRoutes(mux)
 
 	apiConfig := huma.DefaultConfig("Golang API Template", "1.0.0")
 	api := humachi.New(mux, apiConfig)

@@ -17,6 +17,26 @@ func PerformRequest(t *testing.T, handler http.Handler, method, path string, bod
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	return perform(t, handler, req)
+}
+
+// PerformRequestWithHeaders runs a request and applies custom headers.
+func PerformRequestWithHeaders(t *testing.T, handler http.Handler, method, path string, body io.Reader, headers map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(method, path, body)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	return perform(t, handler, req)
+}
+
+func perform(t *testing.T, handler http.Handler, req *http.Request) *httptest.ResponseRecorder {
+	t.Helper()
 
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
