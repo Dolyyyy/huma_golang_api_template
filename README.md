@@ -19,6 +19,38 @@ Latest versions used in this template on **March 2, 2026**:
 - Go: `1.26.0`
 - Huma: `v2.37.2`
 
+## Go Installation (Recommended: `goenv`)
+
+If you want a `pyenv`-style workflow to manage multiple Go versions on one machine, use [`goenv`](https://github.com/go-nv/goenv).
+
+Linux/macOS (and Git Bash/WSL):
+
+```bash
+# 1) install goenv
+git clone https://github.com/go-nv/goenv.git ~/.goenv
+
+# 2) add goenv to your shell config (~/.bashrc, ~/.bash_profile or ~/.zshrc)
+export GOENV_ROOT="$HOME/.goenv"
+export PATH="$GOENV_ROOT/bin:$PATH"
+eval "$(goenv init -)"
+
+# 3) reload shell
+exec $SHELL
+
+# 4) install and select template baseline Go version
+goenv install 1.26.0
+goenv global 1.26.0
+go version
+```
+
+Per-project pin (inside this repository):
+
+```bash
+goenv local 1.26.0
+```
+
+Official install guide: https://github.com/go-nv/goenv/blob/master/INSTALL.md
+
 ## Quick Start
 
 ```bash
