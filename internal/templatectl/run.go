@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -52,7 +53,7 @@ func RunWithRoot(args []string, projectRoot string, stdout, stderr io.Writer) in
 		return runList(options, ui)
 	case "add":
 		if len(commandArgs) < 2 {
-			ui.failure("missing module id: templatectl add <module-id>")
+			ui.failure("missing module target: templatectl add <module-id|index>")
 			return 1
 		}
 		return runAdd(options, commandArgs[1], ui)
@@ -117,7 +118,7 @@ func runList(options runOptions, ui *cliUI) int {
 		ui.print("    %s\n", catalogDescription(ui, module.Description))
 	}
 	ui.print("%s\n", catalogDivider(ui, '-'))
-	ui.print("%s\n", catalogTip(ui, "Tip: templatectl add <module-id>"))
+	ui.print("%s\n", catalogTip(ui, "Tip: templatectl add <module-id|index>"))
 
 	return 0
 }
@@ -188,10 +189,17 @@ func runAdd(options runOptions, moduleID string, ui *cliUI) int {
 		return 1
 	}
 
-	module, ok := findCatalogModule(catalog, moduleID)
+	module, resolvedModuleID, ok, providedIndex, indexOutOfRange := resolveModuleSelection(catalog, moduleID)
 	if !ok {
-		ui.failure("unknown module %q", moduleID)
+		if providedIndex && indexOutOfRange {
+			ui.failure("unknown module index %q (valid range: 1-%d)", strings.TrimSpace(moduleID), len(catalog))
+		} else {
+			ui.failure("unknown module %q", moduleID)
+		}
 		return runList(options, ui)
+	}
+	if strings.TrimSpace(moduleID) != resolvedModuleID {
+		ui.info("resolved module index %q -> %s", strings.TrimSpace(moduleID), resolvedModuleID)
 	}
 
 	lock, err := loadLockFile(options.Root)
@@ -200,8 +208,8 @@ func runAdd(options runOptions, moduleID string, ui *cliUI) int {
 		return 1
 	}
 
-	if _, _, exists := lock.findInstalledModule(moduleID); exists {
-		ui.warn("module %q is already installed", moduleID)
+	if _, _, exists := lock.findInstalledModule(resolvedModuleID); exists {
+		ui.warn("module %q is already installed", resolvedModuleID)
 		return 0
 	}
 
@@ -211,7 +219,7 @@ func runAdd(options runOptions, moduleID string, ui *cliUI) int {
 		return 1
 	}
 
-	if err := ui.runStep(fmt.Sprintf("installing %s", moduleID), func() error {
+	if err := ui.runStep(fmt.Sprintf("installing %s", resolvedModuleID), func() error {
 		_, installErr := installModule(options.Root, module, lock, modulePath)
 		return installErr
 	}); err != nil {
@@ -238,8 +246,26 @@ func runAdd(options runOptions, moduleID string, ui *cliUI) int {
 		}
 	}
 
-	ui.success("module %q installed", moduleID)
+	ui.success("module %q installed", resolvedModuleID)
 	return 0
+}
+
+func resolveModuleSelection(catalog []CatalogModule, selection string) (CatalogModule, string, bool, bool, bool) {
+	trimmed := strings.TrimSpace(selection)
+	if index, err := strconv.Atoi(trimmed); err == nil {
+		if index >= 1 && index <= len(catalog) {
+			module := catalog[index-1]
+			return module, module.Manifest.ID, true, true, false
+		}
+		return CatalogModule{}, trimmed, false, true, true
+	}
+
+	module, ok := findCatalogModule(catalog, trimmed)
+	if !ok {
+		return CatalogModule{}, trimmed, false, false, false
+	}
+
+	return module, module.Manifest.ID, true, false, false
 }
 
 func runRemove(options runOptions, moduleID string, ui *cliUI) int {
@@ -402,7 +428,7 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output)
 	fmt.Fprintln(output, "Usage:")
 	fmt.Fprintln(output, "  templatectl [--root <project-path>] [--source <path-or-url>] list")
-	fmt.Fprintln(output, "  templatectl [--root <project-path>] [--source <path-or-url>] add <module-id>")
+	fmt.Fprintln(output, "  templatectl [--root <project-path>] [--source <path-or-url>] add <module-id|index>")
 	fmt.Fprintln(output, "  templatectl [--root <project-path>] remove <module-id>")
 	fmt.Fprintln(output, "  templatectl [--root <project-path>] doctor")
 	fmt.Fprintln(output)

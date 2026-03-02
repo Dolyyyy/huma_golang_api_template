@@ -71,6 +71,52 @@ func TestAddWritesModuleFilesLockAndImports(t *testing.T) {
 	}
 }
 
+func TestAddAcceptsNumericIndex(t *testing.T) {
+	t.Parallel()
+
+	projectRoot := prepareProjectRoot(t)
+	sourceRoot := prepareModulesSource(t)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := RunWithRoot([]string{"--source", sourceRoot, "--skip-verify", "add", "2"}, projectRoot, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d (stderr=%s)", code, stderr.String())
+	}
+
+	moduleFile := filepath.Join(projectRoot, "internal", "modules", "metrics_prometheus", "module.go")
+	if !fileExists(moduleFile) {
+		t.Fatalf("expected module file at %s", moduleFile)
+	}
+
+	if !strings.Contains(stdout.String(), `resolved module index "2" -> metrics-prometheus`) {
+		t.Fatalf("expected index resolution message, got:\n%s", stdout.String())
+	}
+}
+
+func TestAddAcceptsNumericIndexWithLeadingZero(t *testing.T) {
+	t.Parallel()
+
+	projectRoot := prepareProjectRoot(t)
+	sourceRoot := prepareModulesSource(t)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := RunWithRoot([]string{"--source", sourceRoot, "--skip-verify", "add", "02"}, projectRoot, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d (stderr=%s)", code, stderr.String())
+	}
+
+	moduleFile := filepath.Join(projectRoot, "internal", "modules", "metrics_prometheus", "module.go")
+	if !fileExists(moduleFile) {
+		t.Fatalf("expected module file at %s", moduleFile)
+	}
+
+	if !strings.Contains(stdout.String(), `resolved module index "02" -> metrics-prometheus`) {
+		t.Fatalf("expected index resolution message, got:\n%s", stdout.String())
+	}
+}
+
 func TestRemoveDeletesModuleFilesAndUpdatesImports(t *testing.T) {
 	t.Parallel()
 
