@@ -23,6 +23,12 @@ Latest versions used in this template on **March 2, 2026**:
 
 If you want a `pyenv`-style workflow to manage multiple Go versions on one machine, use [`goenv`](https://github.com/go-nv/goenv).
 
+One-command installer (installs only `goenv`, not any Go version, and does not use project scripts):
+
+```bash
+bash -c 'set -euo pipefail; GOENV_ROOT="${GOENV_ROOT:-$HOME/.goenv}"; [ -d "$GOENV_ROOT/.git" ] || git clone https://github.com/go-nv/goenv.git "$GOENV_ROOT"; RC="$HOME/.bashrc"; [ -n "${ZSH_VERSION:-}" ] && RC="$HOME/.zshrc"; touch "$RC"; grep -qxF '\''export GOENV_ROOT="${GOENV_ROOT:-$HOME/.goenv}"'\'' "$RC" || echo '\''export GOENV_ROOT="${GOENV_ROOT:-$HOME/.goenv}"'\'' >> "$RC"; grep -qxF '\''export PATH="$GOENV_ROOT/bin:$PATH"'\'' "$RC" || echo '\''export PATH="$GOENV_ROOT/bin:$PATH"'\'' >> "$RC"; grep -qxF '\''eval "$(goenv init -)"'\'' "$RC" || echo '\''eval "$(goenv init -)"'\'' >> "$RC"; echo "Restart your shell: exec \$SHELL"'
+```
+
 Linux/macOS (and Git Bash/WSL):
 
 ```bash
