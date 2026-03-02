@@ -25,7 +25,7 @@ Latest versions used in this template on **March 2, 2026**:
 git clone https://github.com/Dolyyyy/huma_golang_api_template.git
 cd huma_golang_api_template
 go mod tidy
-go run ./cmd/api
+go run main.go
 ```
 
 Server default address: `:8888`.
@@ -127,7 +127,7 @@ Expected response:
 ```bash
 go fmt ./...
 go test ./...
-go build -o ./bin/api-template ./cmd/api
+go build -o ./bin/api-template main.go
 ```
 
 ## Huma Docs

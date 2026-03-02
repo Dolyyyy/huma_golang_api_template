@@ -17,6 +17,8 @@ type runOptions struct {
 	SkipVerify bool
 }
 
+const catalogDividerWidth = 64
+
 // Run executes the template module CLI.
 func Run(args []string, stdout, stderr io.Writer) int {
 	cwd, err := os.Getwd()
@@ -92,21 +94,79 @@ func runList(options runOptions, ui *cliUI) int {
 	}
 
 	installed := make(map[string]InstalledModule, len(lock.Modules))
+	installedCount := 0
 	for _, module := range lock.Modules {
 		installed[module.ID] = module
+		installedCount++
 	}
+	availableCount := len(modules) - installedCount
 
-	for _, module := range modules {
+	ui.print("%s\n", catalogDivider(ui, '='))
+	ui.print("%s\n", catalogTitle(ui, " TEMPLATECTL MODULE CATALOG "))
+	ui.print("%s\n", catalogDivider(ui, '='))
+	ui.print("%s\n", catalogSummary(ui, fmt.Sprintf("Total: %d | Installed: %d | Available: %d", len(modules), installedCount, availableCount)))
+	ui.print("%s\n", catalogDivider(ui, '-'))
+
+	for index, module := range modules {
 		status := "available"
 		if _, ok := installed[module.ID]; ok {
 			status = "installed"
 		}
 
-		ui.print("- %s [%s]\n", module.ID, status)
-		ui.print("  %s\n", module.Description)
+		ui.print("%s %s %s\n", catalogIndex(ui, index+1), catalogModuleID(ui, module.ID), catalogStatus(ui, status))
+		ui.print("    %s\n", catalogDescription(ui, module.Description))
 	}
+	ui.print("%s\n", catalogDivider(ui, '-'))
+	ui.print("%s\n", catalogTip(ui, "Tip: templatectl add <module-id>"))
 
 	return 0
+}
+
+func catalogDivider(ui *cliUI, char rune) string {
+	return colorizeIfEnabled(ui, colorBlue, strings.Repeat(string(char), catalogDividerWidth))
+}
+
+func catalogTitle(ui *cliUI, title string) string {
+	return colorizeIfEnabled(ui, colorBold+colorCyan, title)
+}
+
+func catalogSummary(ui *cliUI, summary string) string {
+	return colorizeIfEnabled(ui, colorCyan, summary)
+}
+
+func catalogIndex(ui *cliUI, index int) string {
+	return colorizeIfEnabled(ui, colorBold+colorMagenta, fmt.Sprintf("%02d.", index))
+}
+
+func catalogModuleID(ui *cliUI, moduleID string) string {
+	return colorizeIfEnabled(ui, colorBold, moduleID)
+}
+
+func catalogStatus(ui *cliUI, status string) string {
+	label := fmt.Sprintf("[%s]", status)
+	if status == "installed" {
+		return colorizeIfEnabled(ui, colorBold+colorGreen, label)
+	}
+	return colorizeIfEnabled(ui, colorYellow, label)
+}
+
+func catalogDescription(ui *cliUI, description string) string {
+	text := strings.TrimSpace(description)
+	if text == "" {
+		text = "(no description provided)"
+	}
+	return colorizeIfEnabled(ui, colorGray, text)
+}
+
+func catalogTip(ui *cliUI, tip string) string {
+	return colorizeIfEnabled(ui, colorBlue, tip)
+}
+
+func colorizeIfEnabled(ui *cliUI, colorCode, value string) string {
+	if !ui.colors {
+		return value
+	}
+	return colorCode + value + colorReset
 }
 
 func runAdd(options runOptions, moduleID string, ui *cliUI) int {

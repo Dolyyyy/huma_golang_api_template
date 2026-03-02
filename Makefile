@@ -1,5 +1,5 @@
 APP_NAME := api-template
-CMD_PATH := ./cmd/api
+CMD_PATH := main.go
 TEMPLATECTL_PATH := ./cmd/templatectl
 
 .PHONY: tidy fmt test run build modules-list modules-doctor

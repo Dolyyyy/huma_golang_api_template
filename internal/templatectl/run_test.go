@@ -28,6 +28,12 @@ func TestListIncludesCatalogModules(t *testing.T) {
 	if !strings.Contains(output, "metrics-prometheus [available]") {
 		t.Fatalf("expected metrics-prometheus in output, got:\n%s", output)
 	}
+	if !strings.Contains(output, "01. auth-token [available]") {
+		t.Fatalf("expected numbered module entry for auth-token, got:\n%s", output)
+	}
+	if !strings.Contains(output, "Total: 2 | Installed: 0 | Available: 2") {
+		t.Fatalf("expected catalog summary, got:\n%s", output)
+	}
 }
 
 func TestAddWritesModuleFilesLockAndImports(t *testing.T) {

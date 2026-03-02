@@ -134,4 +134,10 @@ func TestListUsesRemoteModulesIndex(t *testing.T) {
 	if !strings.Contains(output, "metrics-prometheus [available]") {
 		t.Fatalf("expected metrics-prometheus in output, got:\n%s", output)
 	}
+	if !strings.Contains(output, "01. auth-token [available]") {
+		t.Fatalf("expected numbered entries in output, got:\n%s", output)
+	}
+	if !strings.Contains(output, "Total: 2 | Installed: 0 | Available: 2") {
+		t.Fatalf("expected summary block in output, got:\n%s", output)
+	}
 }
