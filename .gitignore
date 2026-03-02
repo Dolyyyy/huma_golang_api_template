@@ -27,3 +27,6 @@ coverage.out
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Modules
+huma_golang_api_template_modules_/
