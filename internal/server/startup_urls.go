@@ -47,8 +47,10 @@ func wildcardURLs(port string, addrs []netip.Addr) []StartupURL {
 		URL:   buildURL("localhost", port),
 	}}
 
-	var privateIP netip.Addr
-	var publicIP netip.Addr
+	var privateIPv4 netip.Addr
+	var privateAny netip.Addr
+	var publicIPv4 netip.Addr
+	var publicAny netip.Addr
 
 	for _, addr := range addrs {
 		normalized := addr.Unmap()
@@ -56,21 +58,32 @@ func wildcardURLs(port string, addrs []netip.Addr) []StartupURL {
 			continue
 		}
 
-		if publicIP.IsValid() && privateIP.IsValid() {
+		if publicIPv4.IsValid() && privateIPv4.IsValid() {
 			break
 		}
 
 		if isPublicAddress(normalized) {
-			if !publicIP.IsValid() {
-				publicIP = normalized
+			if normalized.Is4() && !publicIPv4.IsValid() {
+				publicIPv4 = normalized
+			}
+			if !publicAny.IsValid() {
+				publicAny = normalized
 			}
 			continue
 		}
 
-		if isPrivateAddress(normalized) && !privateIP.IsValid() {
-			privateIP = normalized
+		if isPrivateAddress(normalized) {
+			if normalized.Is4() && !privateIPv4.IsValid() {
+				privateIPv4 = normalized
+			}
+			if !privateAny.IsValid() {
+				privateAny = normalized
+			}
 		}
 	}
+
+	publicIP := firstValid(publicIPv4, publicAny)
+	privateIP := firstValid(privateIPv4, privateAny)
 
 	if publicIP.IsValid() {
 		urls = append(urls, StartupURL{
@@ -88,6 +101,16 @@ func wildcardURLs(port string, addrs []netip.Addr) []StartupURL {
 	}
 
 	return dedupeURLs(urls)
+}
+
+func firstValid(candidates ...netip.Addr) netip.Addr {
+	for _, candidate := range candidates {
+		if candidate.IsValid() {
+			return candidate
+		}
+	}
+
+	return netip.Addr{}
 }
 
 func splitListenAddress(listenAddr string) (string, string) {

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Dolyyyy/golang_api_template/internal/config"
+	"github.com/Dolyyyy/huma_golang_api_template/internal/config"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 

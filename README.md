@@ -37,7 +37,7 @@ go version
 ## Quick Start
 
 ```bash
-git clone https://github.com/Dolyyyy/golang_api_template.git
+git clone https://github.com/Dolyyyy/huma_golang_api_template.git
 cd golang_api_template
 go mod tidy
 go run ./cmd/api
@@ -210,11 +210,12 @@ Recommended flow for a new endpoint test:
 - Huma releases: https://github.com/danielgtaylor/huma/releases
 
 Once running, Huma exposes:
+- Root URL redirects to docs: `http://localhost:8888/`
 - OpenAPI JSON: `http://localhost:8888/openapi.json`
 - OpenAPI YAML: `http://localhost:8888/openapi.yaml`
 - API docs UI: `http://localhost:8888/docs`
 
 ## Notes
 
-- The module path is set to `github.com/Dolyyyy/golang_api_template`.
+- The module path is set to `github.com/Dolyyyy/huma_golang_api_template`.
 - If you fork/rename the repository, update the module path in `go.mod`.

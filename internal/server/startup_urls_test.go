@@ -42,6 +42,23 @@ func TestStartupURLsFromAddrs_WildcardPrefersPublicAddress(t *testing.T) {
 	}
 }
 
+func TestStartupURLsFromAddrs_WildcardPrefersPublicIPv4OverIPv6(t *testing.T) {
+	t.Parallel()
+
+	urls := startupURLsFromAddrs(":8888", []netip.Addr{
+		netip.MustParseAddr("2a01:cb18:d44:d100:d777:3456:395d:8fc6"),
+		netip.MustParseAddr("8.8.8.8"),
+	})
+
+	if len(urls) != 2 {
+		t.Fatalf("expected 2 URLs, got %d", len(urls))
+	}
+
+	if urls[1].Label != startupLabelPublic || urls[1].URL != "http://8.8.8.8:8888" {
+		t.Fatalf("expected public IPv4 URL, got %+v", urls[1])
+	}
+}
+
 func TestStartupURLsFromAddrs_ExplicitLocalhost(t *testing.T) {
 	t.Parallel()
 

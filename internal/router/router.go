@@ -3,8 +3,8 @@ package router
 import (
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/Dolyyyy/golang_api_template/internal/handlers"
-	"github.com/Dolyyyy/golang_api_template/internal/services"
+	"github.com/Dolyyyy/huma_golang_api_template/internal/handlers"
+	"github.com/Dolyyyy/huma_golang_api_template/internal/services"
 )
 
 // Dependencies groups services needed by route handlers.

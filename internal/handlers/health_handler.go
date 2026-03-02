@@ -6,8 +6,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/Dolyyyy/golang_api_template/internal/domain"
-	"github.com/Dolyyyy/golang_api_template/internal/services"
+	"github.com/Dolyyyy/huma_golang_api_template/internal/domain"
+	"github.com/Dolyyyy/huma_golang_api_template/internal/services"
 )
 
 // HealthHandler exposes transport-level operations for health checks.

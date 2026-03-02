@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Dolyyyy/golang_api_template/internal/config"
-	"github.com/Dolyyyy/golang_api_template/internal/logger"
-	"github.com/Dolyyyy/golang_api_template/internal/server"
+	"github.com/Dolyyyy/huma_golang_api_template/internal/config"
+	"github.com/Dolyyyy/huma_golang_api_template/internal/logger"
+	"github.com/Dolyyyy/huma_golang_api_template/internal/server"
 )
 
 func main() {

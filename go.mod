@@ -1,4 +1,4 @@
-module github.com/Dolyyyy/golang_api_template
+module github.com/Dolyyyy/huma_golang_api_template
 
 go 1.26.0
 

@@ -1,7 +1,8 @@
 # Binaries and build outputs
 /bin/
 /dist/
-/logs/
+logs/
+*.log
 *.exe
 *.exe~
 *.dll

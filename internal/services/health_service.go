@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 
-	"github.com/Dolyyyy/golang_api_template/internal/domain"
+	"github.com/Dolyyyy/huma_golang_api_template/internal/domain"
 )
 
 // HealthService defines the business contract for health-style responses.
