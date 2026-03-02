@@ -65,6 +65,10 @@ Default source discovery order:
 2. `TEMPLATECTL_MODULES_SOURCE`
 3. `./huma_golang_api_template_modules`
 4. `../huma_golang_api_template_modules`
+5. `https://github.com/Dolyyyy/huma_golang_api_template_modules`
+
+For `list`, when source is remote and a root-level `modules.json` exists, `templatectl` fetches it directly (no git clone).  
+`add` still clones the repository to copy module files/templates.
 
 Commands:
 

@@ -76,21 +76,17 @@ func runList(options runOptions, ui *cliUI) int {
 		return 1
 	}
 
-	source, err := resolveModulesSource(options.Root, options.Source)
+	modules, sourceDisplay, cleanup, err := resolveListCatalog(options.Root, options.Source)
 	if err != nil {
 		ui.failure("%v", err)
 		return 1
 	}
-	defer source.close()
-
-	catalog, err := loadCatalog(source.Path)
-	if err != nil {
-		ui.failure("%v", err)
-		return 1
+	if cleanup != nil {
+		defer cleanup()
 	}
 
-	ui.info("modules source: %s", source.Path)
-	if len(catalog) == 0 {
+	ui.info("modules source: %s", sourceDisplay)
+	if len(modules) == 0 {
 		ui.warn("no module found in catalog")
 		return 0
 	}
@@ -100,14 +96,14 @@ func runList(options runOptions, ui *cliUI) int {
 		installed[module.ID] = module
 	}
 
-	for _, module := range catalog {
+	for _, module := range modules {
 		status := "available"
-		if _, ok := installed[module.Manifest.ID]; ok {
+		if _, ok := installed[module.ID]; ok {
 			status = "installed"
 		}
 
-		ui.print("- %s [%s]\n", module.Manifest.ID, status)
-		ui.print("  %s\n", module.Manifest.Description)
+		ui.print("- %s [%s]\n", module.ID, status)
+		ui.print("  %s\n", module.Description)
 	}
 
 	return 0

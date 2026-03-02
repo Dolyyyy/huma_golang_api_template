@@ -9,7 +9,10 @@ import (
 	"strings"
 )
 
-const modulesSourceEnv = "TEMPLATECTL_MODULES_SOURCE"
+const (
+	modulesSourceEnv        = "TEMPLATECTL_MODULES_SOURCE"
+	defaultModulesSourceURL = "https://github.com/Dolyyyy/huma_golang_api_template_modules"
+)
 
 type resolvedSource struct {
 	Path    string
@@ -77,6 +80,7 @@ func sourceCandidates(projectRoot, providedSource string) []string {
 	return []string{
 		filepath.Join(projectRoot, "huma_golang_api_template_modules"),
 		filepath.Join(filepath.Dir(projectRoot), "huma_golang_api_template_modules"),
+		defaultModulesSourceURL,
 	}
 }
 
