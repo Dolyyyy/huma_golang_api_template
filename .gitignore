@@ -1,0 +1,28 @@
+# Binaries and build outputs
+/bin/
+/dist/
+/logs/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binaries and coverage reports
+*.test
+*.out
+coverage.out
+
+# Dependency directories
+/vendor/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
