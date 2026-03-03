@@ -1,14 +1,4 @@
 {
   "version": 1,
-  "modules": [
-    {
-      "id": "metrics-prometheus",
-      "name": "Prometheus metrics",
-      "package": "internal/modules/metrics_prometheus",
-      "files": [
-        "internal/modules/metrics_prometheus/module.go"
-      ],
-      "installed_at": "2026-03-03T00:52:33+01:00"
-    }
-  ]
+  "modules": []
 }
