@@ -29,6 +29,18 @@ One-command installer (installs only `goenv`, not any Go version, from the modul
 curl -fsSL https://raw.githubusercontent.com/Dolyyyy/huma_golang_api_template_modules/main/scripts/goenv_install.sh | bash
 ```
 
+If `curl` is missing:
+
+```bash
+wget -qO- https://raw.githubusercontent.com/Dolyyyy/huma_golang_api_template_modules/main/scripts/goenv_install.sh | bash
+```
+
+Debian/Ubuntu quick fix for `curl`:
+
+```bash
+apt-get update && apt-get install -y curl ca-certificates
+```
+
 Linux/macOS (and Git Bash/WSL):
 
 ```bash
