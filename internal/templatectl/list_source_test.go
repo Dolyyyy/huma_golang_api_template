@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -139,5 +140,28 @@ func TestListUsesRemoteModulesIndex(t *testing.T) {
 	}
 	if !strings.Contains(output, "Total: 2 | Installed: 0 | Available: 2") {
 		t.Fatalf("expected summary block in output, got:\n%s", output)
+	}
+}
+
+func TestWithGitHubRawCacheBust(t *testing.T) {
+	t.Parallel()
+
+	rawURL := "https://raw.githubusercontent.com/Dolyyyy/huma_golang_api_template_modules/main/modules.json"
+	busted := withGitHubRawCacheBust(rawURL)
+	if !strings.Contains(busted, "_ts=") {
+		t.Fatalf("expected _ts cache-bust query for raw github URL, got %q", busted)
+	}
+
+	parsed, err := url.Parse(busted)
+	if err != nil {
+		t.Fatalf("failed to parse busted URL: %v", err)
+	}
+	if parsed.Host != "raw.githubusercontent.com" {
+		t.Fatalf("unexpected host: %q", parsed.Host)
+	}
+
+	unchanged := "https://example.com/modules.json"
+	if got := withGitHubRawCacheBust(unchanged); got != unchanged {
+		t.Fatalf("expected non-github URL to remain unchanged, got %q", got)
 	}
 }

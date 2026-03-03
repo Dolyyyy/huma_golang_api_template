@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -167,11 +168,14 @@ func parseGitHubOwnerRepo(source string) (string, string, bool) {
 
 func fetchModulesIndex(indexURL string) ([]listedModule, error) {
 	client := http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest(http.MethodGet, indexURL, nil)
+	requestURL := withGitHubRawCacheBust(indexURL)
+	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build request %q: %w", indexURL, err)
+		return nil, fmt.Errorf("failed to build request %q: %w", requestURL, err)
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Pragma", "no-cache")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -207,4 +211,22 @@ func fetchModulesIndex(indexURL string) ([]listedModule, error) {
 	})
 
 	return modules, nil
+}
+
+func withGitHubRawCacheBust(indexURL string) string {
+	parsed, err := url.Parse(strings.TrimSpace(indexURL))
+	if err != nil {
+		return indexURL
+	}
+
+	// raw.githubusercontent.com can be cached aggressively via CDN.
+	// Add a short-lived query token to force fresh modules.json retrieval.
+	if !strings.EqualFold(parsed.Host, "raw.githubusercontent.com") {
+		return indexURL
+	}
+
+	query := parsed.Query()
+	query.Set("_ts", fmt.Sprintf("%d", time.Now().Unix()))
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
 }
