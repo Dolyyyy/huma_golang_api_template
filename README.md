@@ -29,6 +29,13 @@ One-command installer (installs only `goenv`, not any Go version, from the modul
 curl -fsSL https://raw.githubusercontent.com/Dolyyyy/huma_golang_api_template_modules/main/scripts/goenv_install.sh | bash
 ```
 
+The installer automatically opens a fresh interactive login shell at the end.
+Disable this behavior for automation:
+
+```bash
+GOENV_INSTALL_AUTO_SHELL=0 wget -qO- https://raw.githubusercontent.com/Dolyyyy/huma_golang_api_template_modules/main/scripts/goenv_install.sh | bash
+```
+
 If `curl` is missing:
 
 ```bash
