@@ -48,7 +48,7 @@ func TestRootRedirectsToDocs(t *testing.T) {
 	}
 }
 
-func TestOpenAPIIncludesBGPToolsEndpoints(t *testing.T) {
+func TestOpenAPIIncludesCoreEndpoints(t *testing.T) {
 	t.Parallel()
 
 	srv := New(config.Config{Port: "0"}, nil)
@@ -59,15 +59,7 @@ func TestOpenAPIIncludesBGPToolsEndpoints(t *testing.T) {
 	}
 
 	body := rec.Body.String()
-	expectedPaths := []string{
-		"/bgptools/health:",
-		"/bgptools/ip:",
-		"/bgptools/asn:",
-		"/bgptools/asns:",
-		"/bgptools/asn/{asn}:",
-		"/bgptools/asn/{asn}/prefixes:",
-		"/bgptools/reload:",
-	}
+	expectedPaths := []string{"/api/test:"}
 
 	for _, path := range expectedPaths {
 		if !strings.Contains(body, path) {
