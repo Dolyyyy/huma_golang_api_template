@@ -35,6 +35,18 @@ If `curl` is missing:
 wget -qO- https://raw.githubusercontent.com/Dolyyyy/huma_golang_api_template_modules/main/scripts/goenv_install.sh | bash
 ```
 
+After install, test directly:
+
+```bash
+goenv --version
+```
+
+If command is still not found in the current shell:
+
+```bash
+source ~/.bashrc
+```
+
 Debian/Ubuntu quick fix for `curl`:
 
 ```bash
