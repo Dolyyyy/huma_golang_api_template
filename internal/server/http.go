@@ -50,6 +50,7 @@ func New(cfg config.Config, appLogger *logger.Logger) *http.Server {
 		HealthService: services.NewStaticHealthService(),
 	})
 	modulekit.RegisterHumaRoutes(api)
+	modulekit.RegisterLegacyRouteDocs(api)
 
 	return &http.Server{
 		Addr:              cfg.Address(),
