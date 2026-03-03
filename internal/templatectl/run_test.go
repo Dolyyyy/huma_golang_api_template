@@ -3,6 +3,7 @@ package templatectl
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -153,6 +154,97 @@ func TestRemoveDeletesModuleFilesAndUpdatesImports(t *testing.T) {
 	}
 }
 
+func TestRemoveAcceptsNumericIndex(t *testing.T) {
+	t.Parallel()
+
+	projectRoot := prepareProjectRoot(t)
+	sourceRoot := prepareModulesSource(t)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	addCode := RunWithRoot([]string{"--source", sourceRoot, "--skip-verify", "add", "metrics-prometheus"}, projectRoot, &stdout, &stderr)
+	if addCode != 0 {
+		t.Fatalf("add failed: code=%d stderr=%s", addCode, stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+
+	removeCode := RunWithRoot([]string{"--source", sourceRoot, "--skip-verify", "remove", "2"}, projectRoot, &stdout, &stderr)
+	if removeCode != 0 {
+		t.Fatalf("remove failed: code=%d stderr=%s", removeCode, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `resolved module index "2" -> metrics-prometheus`) {
+		t.Fatalf("expected index resolution message, got:\n%s", stdout.String())
+	}
+
+	moduleFile := filepath.Join(projectRoot, "internal", "modules", "metrics_prometheus", "module.go")
+	if fileExists(moduleFile) {
+		t.Fatalf("expected metrics module file to be removed: %s", moduleFile)
+	}
+}
+
+func TestRemoveAllowsDirtyTemplatectlFiles(t *testing.T) {
+	t.Parallel()
+
+	projectRoot := prepareProjectRoot(t)
+	sourceRoot := prepareModulesSource(t)
+	initGitRepository(t, projectRoot)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	addCode := RunWithRoot([]string{"--source", sourceRoot, "--skip-verify", "add", "auth-token"}, projectRoot, &stdout, &stderr)
+	if addCode != 0 {
+		t.Fatalf("add failed: code=%d stderr=%s", addCode, stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+
+	removeCode := RunWithRoot([]string{"--skip-verify", "remove", "auth-token"}, projectRoot, &stdout, &stderr)
+	if removeCode != 0 {
+		t.Fatalf("remove should succeed when only templatectl-managed files are dirty: code=%d stderr=%s", removeCode, stderr.String())
+	}
+}
+
+func TestRemoveRejectsDirtyUnrelatedFiles(t *testing.T) {
+	t.Parallel()
+
+	projectRoot := prepareProjectRoot(t)
+	sourceRoot := prepareModulesSource(t)
+	initGitRepository(t, projectRoot)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	addCode := RunWithRoot([]string{"--source", sourceRoot, "--skip-verify", "add", "auth-token"}, projectRoot, &stdout, &stderr)
+	if addCode != 0 {
+		t.Fatalf("add failed: code=%d stderr=%s", addCode, stderr.String())
+	}
+
+	if err := os.WriteFile(filepath.Join(projectRoot, "notes.txt"), []byte("manual edit\n"), 0o644); err != nil {
+		t.Fatalf("failed to create unrelated file: %v", err)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+
+	removeCode := RunWithRoot([]string{"--skip-verify", "remove", "auth-token"}, projectRoot, &stdout, &stderr)
+	if removeCode == 0 {
+		t.Fatalf("remove should fail when unrelated files are dirty")
+	}
+	if !strings.Contains(stderr.String(), "non-templatectl changes") {
+		t.Fatalf("expected explicit non-templatectl dirty files error, got:\n%s", stderr.String())
+	}
+
+	moduleFile := filepath.Join(projectRoot, "internal", "modules", "auth_token", "module.go")
+	if !fileExists(moduleFile) {
+		t.Fatalf("module file should still exist after blocked remove: %s", moduleFile)
+	}
+}
+
 func prepareProjectRoot(t *testing.T) string {
 	t.Helper()
 
@@ -232,5 +324,29 @@ func writeModuleTemplate(t *testing.T, sourceRoot, moduleID, relativePath, conte
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write template file: %v", err)
+	}
+}
+
+func initGitRepository(t *testing.T, projectRoot string) {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is required for this test")
+	}
+
+	runGitCommand(t, projectRoot, "init")
+	runGitCommand(t, projectRoot, "config", "user.email", "templatectl-tests@example.com")
+	runGitCommand(t, projectRoot, "config", "user.name", "Templatectl Tests")
+	runGitCommand(t, projectRoot, "add", ".")
+	runGitCommand(t, projectRoot, "commit", "-m", "initial snapshot")
+}
+
+func runGitCommand(t *testing.T, projectRoot string, args ...string) {
+	t.Helper()
+
+	cmd := exec.Command("git", args...)
+	cmd.Dir = projectRoot
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s failed: %v (%s)", strings.Join(args, " "), err, strings.TrimSpace(string(output)))
 	}
 }

@@ -59,7 +59,7 @@ func RunWithRoot(args []string, projectRoot string, stdout, stderr io.Writer) in
 		return runAdd(options, commandArgs[1], ui)
 	case "remove":
 		if len(commandArgs) < 2 {
-			ui.failure("missing module id: templatectl remove <module-id>")
+			ui.failure("missing module target: templatectl remove <module-id|index>")
 			return 1
 		}
 		return runRemove(options, commandArgs[1], ui)
@@ -269,9 +269,23 @@ func resolveModuleSelection(catalog []CatalogModule, selection string) (CatalogM
 }
 
 func runRemove(options runOptions, moduleID string, ui *cliUI) int {
-	if err := ensureGitClean(options.Root); err != nil {
-		ui.failure("%v", err)
-		return 1
+	resolvedModuleID := strings.TrimSpace(moduleID)
+	if index, err := strconv.Atoi(resolvedModuleID); err == nil {
+		modules, _, cleanup, listErr := resolveListCatalog(options.Root, options.Source)
+		if cleanup != nil {
+			defer cleanup()
+		}
+		if listErr != nil {
+			ui.failure("failed to resolve module index %q: %v", resolvedModuleID, listErr)
+			return 1
+		}
+		if index < 1 || index > len(modules) {
+			ui.failure("unknown module index %q (valid range: 1-%d)", resolvedModuleID, len(modules))
+			return runList(options, ui)
+		}
+
+		resolvedModuleID = modules[index-1].ID
+		ui.info("resolved module index %q -> %s", strings.TrimSpace(moduleID), resolvedModuleID)
 	}
 
 	lock, err := loadLockFile(options.Root)
@@ -280,10 +294,14 @@ func runRemove(options runOptions, moduleID string, ui *cliUI) int {
 		return 1
 	}
 
-	installed, _, ok := lock.findInstalledModule(moduleID)
+	installed, _, ok := lock.findInstalledModule(resolvedModuleID)
 	if !ok {
-		ui.warn("module %q is not installed", moduleID)
+		ui.warn("module %q is not installed", resolvedModuleID)
 		return 0
+	}
+	if err := ensureGitSafeForRemove(options.Root, lock); err != nil {
+		ui.failure("%v", err)
+		return 1
 	}
 
 	modulePath, err := readGoModulePath(options.Root)
@@ -292,7 +310,7 @@ func runRemove(options runOptions, moduleID string, ui *cliUI) int {
 		return 1
 	}
 
-	if err := ui.runStep(fmt.Sprintf("removing %s", moduleID), func() error {
+	if err := ui.runStep(fmt.Sprintf("removing %s", resolvedModuleID), func() error {
 		return uninstallModule(options.Root, installed, lock)
 	}); err != nil {
 		ui.failure("%v", err)
@@ -318,7 +336,7 @@ func runRemove(options runOptions, moduleID string, ui *cliUI) int {
 		}
 	}
 
-	ui.success("module %q removed", moduleID)
+	ui.success("module %q removed", resolvedModuleID)
 	return 0
 }
 
@@ -429,7 +447,7 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "Usage:")
 	fmt.Fprintln(output, "  templatectl [--root <project-path>] [--source <path-or-url>] list")
 	fmt.Fprintln(output, "  templatectl [--root <project-path>] [--source <path-or-url>] add <module-id|index>")
-	fmt.Fprintln(output, "  templatectl [--root <project-path>] remove <module-id>")
+	fmt.Fprintln(output, "  templatectl [--root <project-path>] [--source <path-or-url>] remove <module-id|index>")
 	fmt.Fprintln(output, "  templatectl [--root <project-path>] doctor")
 	fmt.Fprintln(output)
 	fmt.Fprintln(output, "Flags:")
