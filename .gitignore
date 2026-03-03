@@ -30,6 +30,7 @@ Thumbs.db
 
 # Cache
 cache/
+.gocache/
 
 # Modules
 huma_golang_api_template_modules_/
