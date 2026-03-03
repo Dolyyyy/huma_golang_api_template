@@ -28,5 +28,8 @@ coverage.out
 .DS_Store
 Thumbs.db
 
+# Cache
+cache/
+
 # Modules
 huma_golang_api_template_modules_/
