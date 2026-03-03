@@ -49,6 +49,36 @@ func ensureGitClean(projectRoot string) error {
 	return nil
 }
 
+func gitDirtyWarningForAdd(projectRoot string) (string, error) {
+	gitDir := filepath.Join(projectRoot, ".git")
+	if !directoryExists(gitDir) {
+		return "", nil
+	}
+
+	dirtyPaths, err := gitDirtyPaths(projectRoot)
+	if err != nil {
+		return "", err
+	}
+	if len(dirtyPaths) == 0 {
+		return "", nil
+	}
+
+	preview := dirtyPaths
+	remaining := 0
+	if len(preview) > 6 {
+		preview = preview[:6]
+		remaining = len(dirtyPaths) - len(preview)
+	}
+
+	message := fmt.Sprintf("git working tree is not clean; continuing add anyway (%s", strings.Join(preview, ", "))
+	if remaining > 0 {
+		message += fmt.Sprintf(", +%d more", remaining)
+	}
+	message += ")"
+
+	return message, nil
+}
+
 func ensureGitSafeForRemove(projectRoot string, lock *LockFile) error {
 	gitDir := filepath.Join(projectRoot, ".git")
 	if !directoryExists(gitDir) {
@@ -89,6 +119,49 @@ func ensureGitSafeForRemove(projectRoot string, lock *LockFile) error {
 	message += ")"
 
 	return fmt.Errorf("%s", message)
+}
+
+func gitDirtyWarningForRemove(projectRoot string, lock *LockFile) (string, error) {
+	gitDir := filepath.Join(projectRoot, ".git")
+	if !directoryExists(gitDir) {
+		return "", nil
+	}
+
+	dirtyPaths, err := gitDirtyPaths(projectRoot)
+	if err != nil {
+		return "", err
+	}
+	if len(dirtyPaths) == 0 {
+		return "", nil
+	}
+
+	allowed := allowedTemplatectlPaths(lock)
+	unexpected := make([]string, 0)
+	for _, path := range dirtyPaths {
+		if _, ok := allowed[path]; ok {
+			continue
+		}
+		unexpected = append(unexpected, path)
+	}
+	if len(unexpected) == 0 {
+		return "", nil
+	}
+
+	sort.Strings(unexpected)
+	preview := unexpected
+	remaining := 0
+	if len(preview) > 6 {
+		preview = preview[:6]
+		remaining = len(unexpected) - len(preview)
+	}
+
+	message := fmt.Sprintf("git working tree has non-templatectl changes; continuing remove only on confirmation (%s", strings.Join(preview, ", "))
+	if remaining > 0 {
+		message += fmt.Sprintf(", +%d more", remaining)
+	}
+	message += ")"
+
+	return message, nil
 }
 
 func allowedTemplatectlPaths(lock *LockFile) map[string]struct{} {

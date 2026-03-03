@@ -178,7 +178,8 @@ Useful flags:
 - `--no-spinner`
 
 When installing/removing a module:
-- `templatectl` checks that git working tree is clean (if `.git` exists)
+- `templatectl add` warns if git working tree is dirty and asks confirmation in interactive shells
+- `templatectl remove` warns on non-templatectl dirty files and asks confirmation in interactive shells
 - copies module files into the project
 - updates `.env` defaults
 - regenerates `internal/modules/generated_imports.go`

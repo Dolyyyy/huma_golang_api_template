@@ -209,7 +209,7 @@ func TestRemoveAllowsDirtyTemplatectlFiles(t *testing.T) {
 	}
 }
 
-func TestRemoveRejectsDirtyUnrelatedFiles(t *testing.T) {
+func TestRemoveAllowsDirtyUnrelatedFilesWithWarning(t *testing.T) {
 	t.Parallel()
 
 	projectRoot := prepareProjectRoot(t)
@@ -232,16 +232,38 @@ func TestRemoveRejectsDirtyUnrelatedFiles(t *testing.T) {
 	stderr.Reset()
 
 	removeCode := RunWithRoot([]string{"--skip-verify", "remove", "auth-token"}, projectRoot, &stdout, &stderr)
-	if removeCode == 0 {
-		t.Fatalf("remove should fail when unrelated files are dirty")
+	if removeCode != 0 {
+		t.Fatalf("remove should succeed on dirty tree, got code=%d stderr=%s", removeCode, stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "non-templatectl changes") {
-		t.Fatalf("expected explicit non-templatectl dirty files error, got:\n%s", stderr.String())
+	if !strings.Contains(stderr.String(), "continuing remove only on confirmation") {
+		t.Fatalf("expected explicit non-templatectl warning, got:\n%s", stderr.String())
 	}
 
 	moduleFile := filepath.Join(projectRoot, "internal", "modules", "auth_token", "module.go")
-	if !fileExists(moduleFile) {
-		t.Fatalf("module file should still exist after blocked remove: %s", moduleFile)
+	if fileExists(moduleFile) {
+		t.Fatalf("module file should be removed: %s", moduleFile)
+	}
+}
+
+func TestAddAllowsDirtyWorkingTreeWithWarning(t *testing.T) {
+	t.Parallel()
+
+	projectRoot := prepareProjectRoot(t)
+	sourceRoot := prepareModulesSource(t)
+	initGitRepository(t, projectRoot)
+
+	if err := os.WriteFile(filepath.Join(projectRoot, "notes.txt"), []byte("manual edit\n"), 0o644); err != nil {
+		t.Fatalf("failed to create unrelated file: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	code := RunWithRoot([]string{"--source", sourceRoot, "--skip-verify", "add", "auth-token"}, projectRoot, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected add to succeed on dirty tree, got code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "continuing add anyway") {
+		t.Fatalf("expected dirty-tree warning, got:\n%s", stderr.String())
 	}
 }
 

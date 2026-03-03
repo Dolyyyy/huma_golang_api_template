@@ -1,6 +1,7 @@
 package templatectl
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -14,18 +15,21 @@ type cliUI struct {
 	stderr  io.Writer
 	colors  bool
 	spinner bool
+	tty     bool
 	mu      sync.Mutex
 }
 
 func newCLIUI(stdout, stderr io.Writer, noColor, noSpinner bool) *cliUI {
 	useColors := !noColor && terminalWriter(stdout) && strings.TrimSpace(os.Getenv("NO_COLOR")) == ""
 	useSpinner := !noSpinner && terminalWriter(stdout)
+	useTTY := terminalWriter(stdout) && terminalWriter(os.Stdin)
 
 	return &cliUI{
 		stdout:  stdout,
 		stderr:  stderr,
 		colors:  useColors,
 		spinner: useSpinner,
+		tty:     useTTY,
 	}
 }
 
@@ -124,6 +128,38 @@ func (u *cliUI) clearSpinnerLine(label string) {
 
 	erase := strings.Repeat(" ", len(label)+8)
 	fmt.Fprintf(u.stdout, "\r%s\r", erase)
+}
+
+func (u *cliUI) confirmYesNo(question string) (bool, error) {
+	if !u.tty {
+		return true, nil
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		u.mu.Lock()
+		prefix := "[CONFIRM]"
+		if u.colors {
+			prefix = fmt.Sprintf("%s[CONFIRM]%s", colorMagenta, colorReset)
+		}
+		fmt.Fprintf(u.stdout, "%s %s ", prefix, question)
+		u.mu.Unlock()
+
+		line, err := reader.ReadString('\n')
+		if err != nil && len(line) == 0 {
+			return false, err
+		}
+
+		answer := strings.ToLower(strings.TrimSpace(line))
+		switch answer {
+		case "y", "yes":
+			return true, nil
+		case "", "n", "no":
+			return false, nil
+		default:
+			u.warn(`please answer with "y" or "n"`)
+		}
+	}
 }
 
 func terminalWriter(writer io.Writer) bool {

@@ -1,19 +1,4 @@
 {
   "version": 1,
-  "modules": [
-    {
-      "id": "db-sqlite",
-      "name": "SQLite connector",
-      "package": "internal/modules/db_sqlite",
-      "files": [
-        "internal/modules/db_sqlite/module.go"
-      ],
-      "env_keys": [
-        "SQLITE_PATH",
-        "SQLITE_BUSY_TIMEOUT_MS",
-        "SQLITE_CONNECT_TIMEOUT_SEC"
-      ],
-      "installed_at": "2026-03-03T23:28:11+01:00"
-    }
-  ]
+  "modules": []
 }

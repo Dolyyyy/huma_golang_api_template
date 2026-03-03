@@ -171,9 +171,19 @@ func colorizeIfEnabled(ui *cliUI, colorCode, value string) string {
 }
 
 func runAdd(options runOptions, moduleID string, ui *cliUI) int {
-	if err := ensureGitClean(options.Root); err != nil {
-		ui.failure("%v", err)
-		return 1
+	if warning, err := gitDirtyWarningForAdd(options.Root); err != nil {
+		ui.warn("failed to inspect git status; continuing add (%v)", err)
+	} else if warning != "" {
+		ui.warn("%s", warning)
+		proceed, confirmErr := ui.confirmYesNo("Continue module installation? [y/N]")
+		if confirmErr != nil {
+			ui.failure("failed to read confirmation: %v", confirmErr)
+			return 1
+		}
+		if !proceed {
+			ui.warn("add canceled by user")
+			return 1
+		}
 	}
 
 	source, err := resolveModulesSource(options.Root, options.Source)
@@ -299,9 +309,20 @@ func runRemove(options runOptions, moduleID string, ui *cliUI) int {
 		ui.warn("module %q is not installed", resolvedModuleID)
 		return 0
 	}
-	if err := ensureGitSafeForRemove(options.Root, lock); err != nil {
-		ui.failure("%v", err)
-		return 1
+
+	if warning, warnErr := gitDirtyWarningForRemove(options.Root, lock); warnErr != nil {
+		ui.warn("failed to inspect git status; continuing remove (%v)", warnErr)
+	} else if warning != "" {
+		ui.warn("%s", warning)
+		proceed, confirmErr := ui.confirmYesNo("Continue module removal? [y/N]")
+		if confirmErr != nil {
+			ui.failure("failed to read confirmation: %v", confirmErr)
+			return 1
+		}
+		if !proceed {
+			ui.warn("remove canceled by user")
+			return 1
+		}
 	}
 
 	modulePath, err := readGoModulePath(options.Root)
