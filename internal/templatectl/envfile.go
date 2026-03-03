@@ -84,13 +84,30 @@ func loadEnvFile(path string) (*EnvFile, error) {
 
 func (f *EnvFile) Save() error {
 	output := make([]string, 0, len(f.lines))
+	previousBlank := false
+
 	for _, item := range f.lines {
+		line := item.raw
 		switch item.kind {
 		case lineKindKV:
-			output = append(output, fmt.Sprintf("%s=%s", item.key, encodeValue(item.value)))
-		default:
-			output = append(output, item.raw)
+			line = fmt.Sprintf("%s=%s", item.key, encodeValue(item.value))
 		}
+
+		if strings.TrimSpace(line) == "" {
+			if len(output) == 0 || previousBlank {
+				continue
+			}
+			previousBlank = true
+			output = append(output, "")
+			continue
+		}
+
+		previousBlank = false
+		output = append(output, line)
+	}
+
+	for len(output) > 0 && strings.TrimSpace(output[len(output)-1]) == "" {
+		output = output[:len(output)-1]
 	}
 
 	content := strings.Join(output, "\n")
@@ -142,11 +159,8 @@ func (f *EnvFile) Unset(key string) {
 		return
 	}
 
-	f.lines[idx] = envLine{
-		kind: lineKindRaw,
-		raw:  "",
-	}
-	delete(f.index, normalized)
+	f.lines = append(f.lines[:idx], f.lines[idx+1:]...)
+	f.rebuildIndex()
 }
 
 func (f *EnvFile) Get(key string) (string, bool) {
@@ -167,6 +181,17 @@ func (f *EnvFile) Values() map[string]string {
 		values[item.key] = item.value
 	}
 	return values
+}
+
+func (f *EnvFile) rebuildIndex() {
+	index := make(map[string]int)
+	for idx, item := range f.lines {
+		if item.kind != lineKindKV {
+			continue
+		}
+		index[item.key] = idx
+	}
+	f.index = index
 }
 
 func parseLine(raw string) envLine {
