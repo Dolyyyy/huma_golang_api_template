@@ -1,34 +1,4 @@
 {
   "version": 1,
-  "modules": [
-    {
-      "id": "bgptools",
-      "name": "BGP.tools lookup",
-      "package": "internal/modules/bgptools",
-      "files": [
-        "cache/bgptools/.gitignore",
-        "internal/modules/bgptools/client.go",
-        "internal/modules/bgptools/config.go",
-        "internal/modules/bgptools/handlers.go",
-        "internal/modules/bgptools/module.go",
-        "internal/modules/bgptools/parser.go",
-        "internal/modules/bgptools/service.go",
-        "internal/modules/bgptools/trie.go",
-        "internal/modules/bgptools/types.go"
-      ],
-      "env_keys": [
-        "BGPTOOLS_TABLE_URL",
-        "BGPTOOLS_ASNS_URL",
-        "BGPTOOLS_CACHE_DIR",
-        "BGPTOOLS_TABLE_MAX_AGE",
-        "BGPTOOLS_ASNS_MAX_AGE",
-        "BGPTOOLS_UPDATE_INTERVAL",
-        "BGPTOOLS_HTTP_TIMEOUT",
-        "BGPTOOLS_USER_AGENT",
-        "BGPTOOLS_PRELOAD",
-        "BGPTOOLS_MAX_BATCH"
-      ],
-      "installed_at": "2026-03-03T22:33:33+01:00"
-    }
-  ]
+  "modules": []
 }
