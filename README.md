@@ -23,10 +23,10 @@ Latest versions used in this template on **March 2, 2026**:
 
 If you want a `pyenv`-style workflow to manage multiple Go versions on one machine, use [`goenv`](https://github.com/go-nv/goenv).
 
-One-command installer (installs only `goenv`, not any Go version, and does not use project scripts):
+One-command installer (installs only `goenv`, not any Go version, from the modules repo script):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Dolyyyy/huma_golang_api_template_modules/main/goenv_install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Dolyyyy/huma_golang_api_template_modules/main/scripts/goenv_install.sh | bash
 ```
 
 Linux/macOS (and Git Bash/WSL):
