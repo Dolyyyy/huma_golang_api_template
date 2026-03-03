@@ -6,6 +6,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -17,6 +18,7 @@ type Definition struct {
 	Validate    func() error
 	Middleware  func(http.Handler) http.Handler
 	Routes      func(chi.Router)
+	HumaRoutes  func(huma.API)
 }
 
 var (
@@ -99,5 +101,15 @@ func RegisterRoutes(router chi.Router) {
 			continue
 		}
 		module.Routes(router)
+	}
+}
+
+// RegisterHumaRoutes attaches documented module operations onto the Huma API.
+func RegisterHumaRoutes(api huma.API) {
+	for _, module := range All() {
+		if module.HumaRoutes == nil {
+			continue
+		}
+		module.HumaRoutes(api)
 	}
 }

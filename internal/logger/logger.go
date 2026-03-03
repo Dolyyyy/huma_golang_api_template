@@ -117,7 +117,7 @@ func (l *Logger) Access(entry AccessLogEntry) {
 	}
 
 	timestamp := time.Now().Format(time.RFC3339)
-	durationText := entry.Duration.Truncate(time.Microsecond).String()
+	durationText := formatDurationMillis(entry.Duration)
 	statusText := strconv.Itoa(entry.Status)
 
 	consoleStatus := statusText
@@ -156,6 +156,17 @@ func (l *Logger) Access(entry AccessLogEntry) {
 	if l.file != nil {
 		_, _ = io.WriteString(l.file, plainLine)
 	}
+}
+
+func formatDurationMillis(duration time.Duration) string {
+	ns := duration.Nanoseconds()
+	if ns < 0 {
+		ns = 0
+	}
+
+	msWhole := ns / int64(time.Millisecond)
+	msFraction := ns % int64(time.Millisecond) // nanoseconds inside the current millisecond
+	return fmt.Sprintf("%d.%06dms", msWhole, msFraction)
 }
 
 // Close flushes/closes the rotating file sink if file logging is enabled.

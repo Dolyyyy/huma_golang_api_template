@@ -119,6 +119,7 @@ cp .env.example .env
 
 Current baseline variables:
 - `PORT` (default: `8888`)
+- `DOCS_RENDERER` (default: `swagger-ui`, values: `swagger-ui`, `stoplight`, `scalar`)
 - `LOG_LEVEL` (`INFO`, `SUCCESS`, `WARNING`, `ERROR`, `CRITICAL`)
 - `LOG_TO_FILE` (`true` / `false`)
 - `LOG_FILE_PATH` (default: `logs/api.log`)
@@ -129,6 +130,21 @@ Current baseline variables:
 - `LOG_CONSOLE_COLORS` (`true` / `false`)
 
 Module-specific env keys are injected by `templatectl add <module-id>`.
+
+### Docs Renderer
+
+By default, this template now uses `SwaggerUI` for `/docs`.
+
+You can switch renderer in `.env`:
+
+```env
+DOCS_RENDERER=swagger-ui
+```
+
+Available values:
+- `swagger-ui`
+- `stoplight`
+- `scalar`
 
 ## Optional Modules (`templatectl`)
 

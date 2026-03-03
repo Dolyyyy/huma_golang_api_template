@@ -35,11 +35,21 @@ func New(cfg config.Config, appLogger *logger.Logger) *http.Server {
 	modulekit.RegisterRoutes(mux)
 
 	apiConfig := huma.DefaultConfig("Golang API Template", "1.0.0")
+	switch cfg.Docs.Renderer {
+	case config.DocsRendererScalar:
+		apiConfig.DocsRenderer = huma.DocsRendererScalar
+	case config.DocsRendererStoplight:
+		apiConfig.DocsRenderer = huma.DocsRendererStoplightElements
+	default:
+		apiConfig.DocsRenderer = huma.DocsRendererSwaggerUI
+	}
+
 	api := humachi.New(mux, apiConfig)
 
 	routerpkg.Register(api, routerpkg.Dependencies{
 		HealthService: services.NewStaticHealthService(),
 	})
+	modulekit.RegisterHumaRoutes(api)
 
 	return &http.Server{
 		Addr:              cfg.Address(),

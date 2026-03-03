@@ -102,3 +102,29 @@ func TestAccessNoColorWhenConsoleColorsDisabled(t *testing.T) {
 		t.Fatalf("expected status in output, got:\n%s", output)
 	}
 }
+
+func TestAccessDurationUsesMilliseconds(t *testing.T) {
+	t.Parallel()
+
+	var console bytes.Buffer
+	log := &Logger{
+		minLevel:      levelInfo,
+		console:       &console,
+		consoleColors: false,
+	}
+
+	log.Access(AccessLogEntry{
+		Method:   "GET",
+		Target:   "/api/test",
+		Proto:    "HTTP/1.1",
+		Status:   200,
+		Bytes:    1,
+		Duration: 5678900 * time.Nanosecond,
+		RemoteIP: "127.0.0.1",
+	})
+
+	output := console.String()
+	if !strings.Contains(output, "duration=5.678900ms") {
+		t.Fatalf("expected millisecond duration in output, got:\n%s", output)
+	}
+}

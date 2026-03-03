@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -21,10 +22,19 @@ const (
 	defaultLogConsoleColors = true
 )
 
+const (
+	DocsRendererSwaggerUI = "swagger-ui"
+	DocsRendererStoplight = "stoplight"
+	DocsRendererScalar    = "scalar"
+)
+
+const defaultDocsRenderer = DocsRendererSwaggerUI
+
 // Config holds runtime options loaded from environment variables.
 type Config struct {
 	Port    string
 	Logging LoggingConfig
+	Docs    DocsConfig
 }
 
 // LoggingConfig controls console/file output and rotation behavior.
@@ -39,6 +49,11 @@ type LoggingConfig struct {
 	ConsoleColors bool
 }
 
+// DocsConfig controls the OpenAPI docs UI renderer.
+type DocsConfig struct {
+	Renderer string
+}
+
 // Load reads environment variables and applies safe defaults.
 func Load() Config {
 	// `.env` is optional. Missing file is ignored.
@@ -50,6 +65,10 @@ func Load() Config {
 	}
 
 	logLevel := strings.ToUpper(strings.TrimSpace(getStringEnv("LOG_LEVEL", defaultLogLevel)))
+	docsRenderer := normalizeDocsRenderer(getStringEnv("DOCS_RENDERER", defaultDocsRenderer))
+	if docsRenderer == "" {
+		docsRenderer = defaultDocsRenderer
+	}
 
 	return Config{
 		Port: port,
@@ -62,6 +81,9 @@ func Load() Config {
 			MaxAgeDays:    getIntEnv("LOG_MAX_AGE_DAYS", defaultLogMaxAgeDays),
 			Compress:      getBoolEnv("LOG_COMPRESS", defaultLogCompress),
 			ConsoleColors: getBoolEnv("LOG_CONSOLE_COLORS", defaultLogConsoleColors),
+		},
+		Docs: DocsConfig{
+			Renderer: docsRenderer,
 		},
 	}
 }
@@ -77,6 +99,10 @@ func (c Config) Address() string {
 
 // Validate enforces config invariants and fails fast on invalid settings.
 func (c Config) Validate() error {
+	if c.Docs.Renderer != "" && !isValidDocsRenderer(c.Docs.Renderer) {
+		return fmt.Errorf("invalid DOCS_RENDERER %q (allowed: %s, %s, %s)", c.Docs.Renderer, DocsRendererSwaggerUI, DocsRendererStoplight, DocsRendererScalar)
+	}
+
 	return nil
 }
 
@@ -115,4 +141,26 @@ func getBoolEnv(key string, fallback bool) bool {
 	}
 
 	return parsed
+}
+
+func normalizeDocsRenderer(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case DocsRendererSwaggerUI, "swagger", "swaggerui":
+		return DocsRendererSwaggerUI
+	case DocsRendererStoplight, "stoplight-elements", "elements":
+		return DocsRendererStoplight
+	case DocsRendererScalar:
+		return DocsRendererScalar
+	default:
+		return ""
+	}
+}
+
+func isValidDocsRenderer(value string) bool {
+	switch value {
+	case DocsRendererSwaggerUI, DocsRendererStoplight, DocsRendererScalar:
+		return true
+	default:
+		return false
+	}
 }
