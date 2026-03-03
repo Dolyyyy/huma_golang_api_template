@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/Dolyyyy/huma_golang_api_template/internal/config"
+	"github.com/Dolyyyy/huma_golang_api_template/internal/logger"
 	"github.com/Dolyyyy/huma_golang_api_template/internal/modulekit"
 	_ "github.com/Dolyyyy/huma_golang_api_template/internal/modules"
 	routerpkg "github.com/Dolyyyy/huma_golang_api_template/internal/router"
@@ -16,8 +17,14 @@ import (
 )
 
 // New builds the HTTP server and wires all API dependencies.
-func New(cfg config.Config) *http.Server {
+func New(cfg config.Config, appLogger *logger.Logger) *http.Server {
 	mux := chi.NewRouter()
+	mux.Use(newAccessLogMiddleware(func(entry logger.AccessLogEntry) {
+		if appLogger == nil {
+			return
+		}
+		appLogger.Access(entry)
+	}))
 
 	modulekit.ApplyMiddlewares(mux)
 

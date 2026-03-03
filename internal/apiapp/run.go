@@ -40,7 +40,7 @@ func Run() int {
 		}
 	}()
 
-	srv := server.New(cfg)
+	srv := server.New(cfg, appLogger)
 
 	errCh := make(chan error, 1)
 	go func() {

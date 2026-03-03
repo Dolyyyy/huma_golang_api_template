@@ -12,7 +12,7 @@ import (
 func TestAPITestEndpoint(t *testing.T) {
 	t.Parallel()
 
-	srv := New(config.Config{Port: "0"})
+	srv := New(config.Config{Port: "0"}, nil)
 	rec := testutils.PerformRequest(t, srv.Handler, http.MethodGet, "/api/test", nil)
 
 	if rec.Code != http.StatusOK {
@@ -34,7 +34,7 @@ func TestAPITestEndpoint(t *testing.T) {
 func TestRootRedirectsToDocs(t *testing.T) {
 	t.Parallel()
 
-	srv := New(config.Config{Port: "0"})
+	srv := New(config.Config{Port: "0"}, nil)
 	rec := testutils.PerformRequest(t, srv.Handler, http.MethodGet, "/", nil)
 
 	if rec.Code != http.StatusFound {

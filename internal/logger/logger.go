@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,6 +40,17 @@ type Logger struct {
 	rotatingFile  *lumberjack.Logger
 	consoleColors bool
 	mu            sync.Mutex
+}
+
+// AccessLogEntry represents one HTTP request/response exchange for access logging.
+type AccessLogEntry struct {
+	Method   string
+	Target   string
+	Proto    string
+	Status   int
+	Bytes    int
+	Duration time.Duration
+	RemoteIP string
 }
 
 // New builds a logger with colored console output and optional rotating file logs.
@@ -96,6 +108,54 @@ func (l *Logger) Error(message string, fields ...any) {
 
 func (l *Logger) Critical(message string, fields ...any) {
 	l.log(levelCritical, message, fields...)
+}
+
+// Access writes one HTTP access log line with colored status on console output.
+func (l *Logger) Access(entry AccessLogEntry) {
+	if levelInfo.priority() < l.minLevel.priority() {
+		return
+	}
+
+	timestamp := time.Now().Format(time.RFC3339)
+	durationText := entry.Duration.Truncate(time.Microsecond).String()
+	statusText := strconv.Itoa(entry.Status)
+
+	consoleStatus := statusText
+	if l.consoleColors {
+		consoleStatus = accessStatusColor(entry.Status) + statusText + resetColor
+	}
+
+	plainLine := fmt.Sprintf(
+		"%s [HTTP] ip=%s method=%s target=%q proto=%s status=%s bytes=%d duration=%s\n",
+		timestamp,
+		entry.RemoteIP,
+		entry.Method,
+		entry.Target,
+		entry.Proto,
+		statusText,
+		entry.Bytes,
+		durationText,
+	)
+
+	consoleLine := fmt.Sprintf(
+		"%s [HTTP] ip=%s method=%s target=%q proto=%s status=%s bytes=%d duration=%s\n",
+		timestamp,
+		entry.RemoteIP,
+		entry.Method,
+		entry.Target,
+		entry.Proto,
+		consoleStatus,
+		entry.Bytes,
+		durationText,
+	)
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	_, _ = io.WriteString(l.console, consoleLine)
+	if l.file != nil {
+		_, _ = io.WriteString(l.file, plainLine)
+	}
 }
 
 // Close flushes/closes the rotating file sink if file logging is enabled.
@@ -189,6 +249,21 @@ func (l level) color() string {
 		return criticalColor
 	default:
 		return infoColor
+	}
+}
+
+func accessStatusColor(status int) string {
+	switch {
+	case status >= 500:
+		return errorColor
+	case status >= 400:
+		return warningColor
+	case status >= 300:
+		return infoColor
+	case status >= 200:
+		return successColor
+	default:
+		return criticalColor
 	}
 }
 
