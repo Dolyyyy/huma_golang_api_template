@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -163,6 +164,56 @@ func (f *EnvFile) Unset(key string) {
 	f.rebuildIndex()
 }
 
+func (f *EnvFile) UpsertModuleSection(moduleID string, orderedKeys []string, defaults map[string]string) {
+	normalizedModuleID := strings.TrimSpace(moduleID)
+	if normalizedModuleID == "" {
+		return
+	}
+
+	keys := normalizeModuleKeys(orderedKeys, defaults)
+	if len(keys) == 0 {
+		return
+	}
+
+	values := make(map[string]string, len(keys))
+	for _, key := range keys {
+		existing, ok := f.Get(key)
+		if ok && strings.TrimSpace(existing) != "" {
+			values[key] = existing
+			continue
+		}
+		values[key] = defaults[key]
+	}
+
+	header := moduleSectionHeader(normalizedModuleID)
+	f.removeKeys(keys)
+	f.removeRawLine(header)
+
+	if !f.endsWithBlankOrEmpty() {
+		f.lines = append(f.lines, envLine{kind: lineKindRaw, raw: ""})
+	}
+	f.lines = append(f.lines, envLine{kind: lineKindRaw, raw: header})
+	for _, key := range keys {
+		f.lines = append(f.lines, envLine{
+			kind:  lineKindKV,
+			key:   key,
+			value: values[key],
+		})
+	}
+	f.rebuildIndex()
+}
+
+func (f *EnvFile) RemoveModuleSection(moduleID string, keys []string) {
+	normalizedModuleID := strings.TrimSpace(moduleID)
+	if normalizedModuleID == "" {
+		return
+	}
+
+	f.removeKeys(keys)
+	f.removeRawLine(moduleSectionHeader(normalizedModuleID))
+	f.rebuildIndex()
+}
+
 func (f *EnvFile) Get(key string) (string, bool) {
 	idx, ok := f.index[key]
 	if !ok {
@@ -192,6 +243,102 @@ func (f *EnvFile) rebuildIndex() {
 		index[item.key] = idx
 	}
 	f.index = index
+}
+
+func (f *EnvFile) removeKeys(keys []string) {
+	if len(keys) == 0 {
+		return
+	}
+
+	keySet := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		normalized := strings.TrimSpace(key)
+		if normalized == "" {
+			continue
+		}
+		keySet[normalized] = struct{}{}
+	}
+	if len(keySet) == 0 {
+		return
+	}
+
+	filtered := make([]envLine, 0, len(f.lines))
+	for _, line := range f.lines {
+		if line.kind == lineKindKV {
+			if _, ok := keySet[line.key]; ok {
+				continue
+			}
+		}
+		filtered = append(filtered, line)
+	}
+	f.lines = filtered
+}
+
+func (f *EnvFile) removeRawLine(raw string) {
+	target := strings.TrimSpace(raw)
+	if target == "" {
+		return
+	}
+
+	filtered := make([]envLine, 0, len(f.lines))
+	for _, line := range f.lines {
+		if line.kind == lineKindRaw && strings.TrimSpace(line.raw) == target {
+			continue
+		}
+		filtered = append(filtered, line)
+	}
+	f.lines = filtered
+}
+
+func (f *EnvFile) endsWithBlankOrEmpty() bool {
+	for idx := len(f.lines) - 1; idx >= 0; idx-- {
+		line := f.lines[idx]
+		if line.kind == lineKindKV {
+			return false
+		}
+		if strings.TrimSpace(line.raw) == "" {
+			return true
+		}
+		return false
+	}
+	return true
+}
+
+func moduleSectionHeader(moduleID string) string {
+	return fmt.Sprintf("# Module: %s (used only if %s module is installed)", moduleID, moduleID)
+}
+
+func normalizeModuleKeys(orderedKeys []string, defaults map[string]string) []string {
+	seen := make(map[string]struct{})
+	keys := make([]string, 0, len(orderedKeys)+len(defaults))
+
+	for _, key := range orderedKeys {
+		normalized := strings.TrimSpace(key)
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		keys = append(keys, normalized)
+	}
+
+	extra := make([]string, 0, len(defaults))
+	for key := range defaults {
+		normalized := strings.TrimSpace(key)
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		extra = append(extra, normalized)
+	}
+	sort.Strings(extra)
+
+	keys = append(keys, extra...)
+	return keys
 }
 
 func parseLine(raw string) envLine {

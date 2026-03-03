@@ -33,9 +33,8 @@ func installModule(projectRoot string, module CatalogModule, lock *LockFile, mod
 		return InstalledModule{}, fmt.Errorf("failed to load .env: %w", err)
 	}
 
-	for key, value := range module.Manifest.Defaults {
-		env.SetIfMissing(key, value)
-	}
+	moduleEnvKeys := manifestEnvKeys(module.Manifest)
+	env.UpsertModuleSection(module.Manifest.ID, moduleEnvKeys, module.Manifest.Defaults)
 	if err := env.Save(); err != nil {
 		return InstalledModule{}, fmt.Errorf("failed to save .env: %w", err)
 	}
@@ -45,7 +44,7 @@ func installModule(projectRoot string, module CatalogModule, lock *LockFile, mod
 		Name:        module.Manifest.Name,
 		PackagePath: module.Manifest.PackagePath,
 		Files:       files,
-		EnvKeys:     append([]string(nil), module.Manifest.CleanupEnvKeys...),
+		EnvKeys:     append([]string(nil), moduleEnvKeys...),
 		InstalledAt: time.Now().Format(time.RFC3339),
 	}
 
@@ -69,19 +68,15 @@ func uninstallModule(projectRoot string, module InstalledModule, lock *LockFile)
 		removeEmptyParents(projectRoot, filepath.Dir(absolute))
 	}
 
-	if len(module.EnvKeys) > 0 {
-		envPath := filepath.Join(projectRoot, envFileName)
-		if fileExists(envPath) {
-			env, err := loadEnvFile(envPath)
-			if err != nil {
-				return fmt.Errorf("failed to load .env: %w", err)
-			}
-			for _, key := range module.EnvKeys {
-				env.Unset(key)
-			}
-			if err := env.Save(); err != nil {
-				return fmt.Errorf("failed to save .env: %w", err)
-			}
+	envPath := filepath.Join(projectRoot, envFileName)
+	if fileExists(envPath) {
+		env, err := loadEnvFile(envPath)
+		if err != nil {
+			return fmt.Errorf("failed to load .env: %w", err)
+		}
+		env.RemoveModuleSection(module.ID, module.EnvKeys)
+		if err := env.Save(); err != nil {
+			return fmt.Errorf("failed to save .env: %w", err)
 		}
 	}
 
@@ -213,4 +208,8 @@ func runCommand(projectRoot string, name string, args ...string) error {
 	}
 
 	return nil
+}
+
+func manifestEnvKeys(manifest ModuleManifest) []string {
+	return normalizeModuleKeys(manifest.CleanupEnvKeys, manifest.Defaults)
 }
