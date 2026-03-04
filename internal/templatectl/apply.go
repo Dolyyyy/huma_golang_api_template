@@ -68,6 +68,10 @@ func uninstallModule(projectRoot string, module InstalledModule, lock *LockFile)
 		removeEmptyParents(projectRoot, filepath.Dir(absolute))
 	}
 
+	if err := removeInstalledPackageDirectory(projectRoot, module.PackagePath); err != nil {
+		return err
+	}
+
 	envPath := filepath.Join(projectRoot, envFileName)
 	if fileExists(envPath) {
 		env, err := loadEnvFile(envPath)
@@ -212,4 +216,42 @@ func runCommand(projectRoot string, name string, args ...string) error {
 
 func manifestEnvKeys(manifest ModuleManifest) []string {
 	return normalizeModuleKeys(manifest.CleanupEnvKeys, manifest.Defaults)
+}
+
+func removeInstalledPackageDirectory(projectRoot, packagePath string) error {
+	trimmed := strings.TrimSpace(packagePath)
+	if trimmed == "" {
+		return nil
+	}
+
+	normalized := filepath.ToSlash(filepath.Clean(filepath.FromSlash(trimmed)))
+	if normalized == "." || normalized == "" {
+		return nil
+	}
+	if !strings.HasPrefix(normalized, "internal/modules/") {
+		return nil
+	}
+
+	absolute, err := safeJoinBase(projectRoot, normalized)
+	if err != nil {
+		return err
+	}
+
+	info, err := os.Stat(absolute)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to inspect module package directory %s: %w", normalized, err)
+	}
+	if !info.IsDir() {
+		return nil
+	}
+
+	if err := os.RemoveAll(absolute); err != nil {
+		return fmt.Errorf("failed to remove module package directory %s: %w", normalized, err)
+	}
+
+	removeEmptyParents(projectRoot, filepath.Dir(absolute))
+	return nil
 }

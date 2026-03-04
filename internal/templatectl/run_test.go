@@ -245,6 +245,42 @@ func TestRemoveAllowsDirtyUnrelatedFilesWithWarning(t *testing.T) {
 	}
 }
 
+func TestRemoveDeletesOrphanFilesInModulePackageDirectory(t *testing.T) {
+	t.Parallel()
+
+	projectRoot := prepareProjectRoot(t)
+	sourceRoot := prepareModulesSource(t)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	addCode := RunWithRoot([]string{"--source", sourceRoot, "--skip-verify", "add", "auth-token"}, projectRoot, &stdout, &stderr)
+	if addCode != 0 {
+		t.Fatalf("add failed: code=%d stderr=%s", addCode, stderr.String())
+	}
+
+	packageDir := filepath.Join(projectRoot, "internal", "modules", "auth_token")
+	orphanPath := filepath.Join(packageDir, "orphan.go")
+	if err := os.WriteFile(orphanPath, []byte("package auth_token\n"), 0o644); err != nil {
+		t.Fatalf("failed to write orphan file: %v", err)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+
+	removeCode := RunWithRoot([]string{"--skip-verify", "remove", "auth-token"}, projectRoot, &stdout, &stderr)
+	if removeCode != 0 {
+		t.Fatalf("remove failed: code=%d stderr=%s", removeCode, stderr.String())
+	}
+
+	if fileExists(orphanPath) {
+		t.Fatalf("expected orphan file to be removed: %s", orphanPath)
+	}
+	if _, err := os.Stat(packageDir); !os.IsNotExist(err) {
+		t.Fatalf("expected module package dir to be removed, stat err=%v", err)
+	}
+}
+
 func TestAddAllowsDirtyWorkingTreeWithWarning(t *testing.T) {
 	t.Parallel()
 
